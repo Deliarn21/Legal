@@ -14,4 +14,4 @@ dev-server*.err.log
 
 Thumbs.db
 .DS_Store
-demo-app/ .npm-cache/
+demo-app/.npm-cache/
