@@ -29,11 +29,14 @@ type DocumentItem = {
   category: string
   deadline: string
   picId: number
+  picIds?: number[]
   picName: string
   assigneeIds: number[]
   downloadedIds: number[]
   signedIds: number[]
   downloadUrl?: string
+  fileName?: string
+  ownerEntity?: string
   previewText?: string[]
 }
 
@@ -47,8 +50,19 @@ type SignatureRecord = {
   docId: number
   personId: number
   signerName: string
+  signerNrp: string
+  noKtp: string
   signatureDataUrl: string
 }
+
+type UploadedSignedFile = {
+  docId: number
+  personId: number
+  fileName: string
+  url: string
+}
+
+type PicEmailMap = Record<string, string>
 
 const defaultWatermark: WatermarkSettings = {
   text: 'CONFIDENTIAL - PREVIEW ONLY',
@@ -59,30 +73,34 @@ const defaultWatermark: WatermarkSettings = {
 const defaultSignaturePlacement: SignaturePlacementOption = 'center'
 
 const entityOptions = [
-  'HASNUR JAYA',
-  'ENERGI BAT',
-  'HASNUR GROUP',
+  'HASNUR JAYA INTERNATIONAL',
+  'ENERGI BATUBARA LESTARI',
+  'HASNUR GROUP INDONESIA',
+  'HASNUR JAYA TAMBANG',
+  'HASNUR JAYA UTAMA',
   'BARITO PUTERA',
-  'HASNUR INF',
-  'PUTERA BAR',
-  'HASNUR INT',
-  'HASNUR RES',
-  'HASNUR MIT',
-  'CIPTA DAYA',
-  'INSAN PENDIDIK',
-  'GRAHA NUS',
-  'HASNUR CIT',
-  'BAYANG NYA',
-  'HASNUR RIU',
-  'JAYA AGENS',
-  'NUR JAYA SA',
-  'BARITO JAYA',
-  'MITRA SIGRA',
-  'MAGMA SIG',
-  'SINERGI SIG',
-  'NUSANTARA',
-  'NUR UMMI',
-  'YAYASAN HA'
+  'HASNUR INFORMASI TEKNOLOGI',
+  'PUTERA BARITO BERBAKTI',
+  'HASNUR INTERNASIONAL SHIPPING TBK',
+  'HASNUR RESOURCES TERMINAL',
+  'HASNUR MITRA SARANA',
+  'CIPTA DAYA INOVASI',
+  'INSAN PENDIDIKAN INDONESIA',
+  'GRAHA NUSA MINERGI',
+  'HASNUR CITRA TERPADU',
+  'BARITO PUTERA PLANTATION',
+  'HASNUR JAYA POWER',
+  'BAYANG NYALO HIDRO',
+  'HASNUR RIUNG SINERGI',
+  'JAYA AGENSI KAPAL INDONESIA',
+  'NUR JAYA SAMUDRA',
+  'BARITO JAYA SARANA',
+  'MITRA SIGRA UTAMA, PT',
+  'MAGMA SIGMA UTAMA, PT',
+  'SINERGI SIGRA SEJAHTERA, PT',
+  'NUSANTARA ALAMRAYA SEJAHTERA',
+  'NUR UMMI RABBANI',
+  'YAYASAN HASNUR CENTRE'
 ]
 
 const entityPicUsers: PicUser[] = entityOptions.map((entity, index) => ({
@@ -92,10 +110,39 @@ const entityPicUsers: PicUser[] = entityOptions.map((entity, index) => ({
   department: entity
 }))
 
-const peopleUploadTemplate = `NRP,Nama,Entitas
-100001,Budi Santoso,HASNUR JAYA
-100002,Siti Rahma,ENERGI BAT
-100003,Agus Pratama,HASNUR GROUP
+const defaultPicEmails: PicEmailMap = Object.fromEntries(
+  entityOptions.map((entity) => [entity, `${entity.toLowerCase().replace(/[^a-z0-9]+/g, '.')}pic@company.local`])
+)
+
+const peopleUploadTemplate = `NRP;Nama;Entitas;;;Gunakan nama entitas dibawah ini
+100001;Budi Santoso;HASNUR JAYA INTERNATIONAL;;;HASNUR JAYA INTERNATIONAL
+100002;Siti Rahma;ENERGI BATUBARA LESTARI;;;ENERGI BATUBARA LESTARI
+100003;Agus Pratama;HASNUR GROUP INDONESIA;;;HASNUR GROUP INDONESIA
+;;;;;HASNUR JAYA TAMBANG
+;;;;;HASNUR JAYA UTAMA
+;;;;;BARITO PUTERA
+;;;;;HASNUR INFORMASI TEKNOLOGI
+;;;;;PUTERA BARITO BERBAKTI
+;;;;;HASNUR INTERNASIONAL SHIPPING TBK
+;;;;;HASNUR RESOURCES TERMINAL
+;;;;;HASNUR MITRA SARANA
+;;;;;CIPTA DAYA INOVASI
+;;;;;INSAN PENDIDIKAN INDONESIA
+;;;;;GRAHA NUSA MINERGI
+;;;;;HASNUR CITRA TERPADU
+;;;;;BARITO PUTERA PLANTATION
+;;;;;HASNUR JAYA POWER
+;;;;;BAYANG NYALO HIDRO
+;;;;;HASNUR RIUNG SINERGI
+;;;;;JAYA AGENSI KAPAL INDONESIA
+;;;;;NUR JAYA SAMUDRA
+;;;;;BARITO JAYA SARANA
+;;;;;MITRA SIGRA UTAMA, PT
+;;;;;MAGMA SIGMA UTAMA, PT
+;;;;;SINERGI SIGRA SEJAHTERA, PT
+;;;;;NUSANTARA ALAMRAYA SEJAHTERA
+;;;;;NUR UMMI RABBANI
+;;;;;YAYASAN HASNUR CENTRE
 `
 
 const integrityPreview = [
@@ -123,13 +170,13 @@ const integrityPreview = [
 ]
 
 const initialPeople: Person[] = [
-  { id: 11, nrp: '100011', name: 'Ari Finance', email: 'ari.finance@company.com', department: 'Finance', entity: 'HASNUR JAYA', picId: 3 },
-  { id: 12, nrp: '100012', name: 'Maya Finance', email: 'maya.finance@company.com', department: 'Finance', entity: 'HASNUR JAYA', picId: 3 },
-  { id: 13, nrp: '100013', name: 'Dimas Finance', email: 'dimas.finance@company.com', department: 'Finance', entity: 'ENERGI BAT', picId: 3 },
-  { id: 21, nrp: '100021', name: 'Nadia Legal', email: 'nadia.legal@company.com', department: 'Legal', entity: 'HASNUR GROUP', picId: 5 },
+  { id: 11, nrp: '100011', name: 'Ari Finance', email: 'ari.finance@company.com', department: 'Finance', entity: 'HASNUR JAYA INTERNATIONAL', picId: 3 },
+  { id: 12, nrp: '100012', name: 'Maya Finance', email: 'maya.finance@company.com', department: 'Finance', entity: 'HASNUR JAYA INTERNATIONAL', picId: 3 },
+  { id: 13, nrp: '100013', name: 'Dimas Finance', email: 'dimas.finance@company.com', department: 'Finance', entity: 'ENERGI BATUBARA LESTARI', picId: 3 },
+  { id: 21, nrp: '100021', name: 'Nadia Legal', email: 'nadia.legal@company.com', department: 'Legal', entity: 'HASNUR GROUP INDONESIA', picId: 5 },
   { id: 22, nrp: '100022', name: 'Bima Legal', email: 'bima.legal@company.com', department: 'Legal', entity: 'BARITO PUTERA', picId: 5 },
-  { id: 31, nrp: '100031', name: 'Sari HR', email: 'sari.hr@company.com', department: 'Human Resources', entity: 'HASNUR INF', picId: 6 },
-  { id: 32, nrp: '100032', name: 'Reno HR', email: 'reno.hr@company.com', department: 'Human Resources', entity: 'PUTERA BAR', picId: 6 }
+  { id: 31, nrp: '100031', name: 'Sari HR', email: 'sari.hr@company.com', department: 'Human Resources', entity: 'HASNUR INFORMASI TEKNOLOGI', picId: 6 },
+  { id: 32, nrp: '100032', name: 'Reno HR', email: 'reno.hr@company.com', department: 'Human Resources', entity: 'PUTERA BARITO BERBAKTI', picId: 6 }
 ]
 
 const initialPicUsers: PicUser[] = [
@@ -202,36 +249,65 @@ export default function Dashboard({ user, setUser }: any) {
   const [selectedDocId, setSelectedDocId] = useState(1)
   const [expandedDocId, setExpandedDocId] = useState<number | null>(1)
   const [managedPeople, setManagedPeople] = useState<Person[]>(initialPeople)
+  const [managedDocuments, setManagedDocuments] = useState<DocumentItem[]>(initialDocuments)
   const [sessionSignatures, setSessionSignatures] = useState<SignatureRecord[]>([])
+  const [uploadedSignedFiles, setUploadedSignedFiles] = useState<UploadedSignedFile[]>([])
   const [watermark, setWatermark] = useState<WatermarkSettings>(defaultWatermark)
   const [signaturePlacement, setSignaturePlacement] = useState<SignaturePlacementOption>(defaultSignaturePlacement)
+  const [picEmails, setPicEmails] = useState<PicEmailMap>(defaultPicEmails)
 
   const role = user?.role as Role
+  const isSuperAdmin = role === 'SUPER_ADMIN'
+  const isEntityAdmin = role === 'ADMIN'
   const isAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const isPic = role === 'PIC'
   const personId = currentUserPersonId[user?.email] || 12
+  const adminEntity = user?.entity || entityOptions[0]
+  const nextDocumentId = useMemo(() => Math.max(...managedDocuments.map((doc) => doc.id), 0) + 1, [managedDocuments])
 
   const visibleDocuments = useMemo(() => {
-    const docsWithSessionSignoff = initialDocuments.map((doc) => {
+    const docsWithSessionSignoff = managedDocuments.map((doc) => {
       const hasSessionSignature = sessionSignatures.some((signature) => signature.docId === doc.id && signature.personId === personId)
-      if (!hasSessionSignature || doc.signedIds.includes(personId)) return doc
+      const hasUploadedSignedFile = uploadedSignedFiles.some((file) => file.docId === doc.id && file.personId === personId)
+      if ((!hasSessionSignature && !hasUploadedSignedFile) || doc.signedIds.includes(personId)) return doc
       return { ...doc, signedIds: [...doc.signedIds, personId] }
     })
 
-    if (isAdmin) return docsWithSessionSignoff
-    if (isPic) return docsWithSessionSignoff.filter((doc) => doc.picId === user.id)
+    if (isSuperAdmin) return docsWithSessionSignoff
+    if (isEntityAdmin) {
+      const entityPersonIds = new Set(
+        managedPeople
+          .filter((person) => (person.entity || person.department) === adminEntity)
+          .map((person) => person.id)
+      )
+
+      return docsWithSessionSignoff
+        .map((doc) => ({
+          ...doc,
+          assigneeIds: doc.assigneeIds.filter((id) => entityPersonIds.has(id)),
+          downloadedIds: doc.downloadedIds.filter((id) => entityPersonIds.has(id)),
+          signedIds: doc.signedIds.filter((id) => entityPersonIds.has(id))
+        }))
+        .filter((doc) => doc.assigneeIds.length > 0 || doc.ownerEntity === adminEntity)
+    }
+    if (isPic) return docsWithSessionSignoff.filter((doc) => (doc.picIds || [doc.picId]).includes(user.id))
     return docsWithSessionSignoff.filter((doc) => doc.assigneeIds.includes(personId))
-  }, [isAdmin, isPic, personId, sessionSignatures, user?.id])
+  }, [adminEntity, isEntityAdmin, isPic, isSuperAdmin, managedDocuments, managedPeople, personId, sessionSignatures, uploadedSignedFiles, user?.id])
 
   const visiblePeople = useMemo(() => {
-    if (isAdmin) return managedPeople
+    if (isSuperAdmin) return managedPeople
+    if (isEntityAdmin) return managedPeople.filter((person) => (person.entity || person.department) === adminEntity)
     if (isPic) return managedPeople.filter((person) => person.picId === user.id)
     return managedPeople.filter((person) => person.id === personId)
-  }, [isAdmin, isPic, managedPeople, personId, user?.id])
+  }, [adminEntity, isEntityAdmin, isPic, isSuperAdmin, managedPeople, personId, user?.id])
 
   const selectedDocument = useMemo(() => {
     return visibleDocuments.find((doc) => doc.id === selectedDocId) || visibleDocuments[0]
   }, [selectedDocId, visibleDocuments])
+
+  const currentPerson = useMemo(() => {
+    return managedPeople.find((person) => person.id === personId)
+  }, [managedPeople, personId])
 
   useEffect(() => {
     const saved = localStorage.getItem('watermarkSettings')
@@ -269,6 +345,31 @@ export default function Dashboard({ user, setUser }: any) {
       ...current.filter((item) => !(item.docId === signature.docId && item.personId === signature.personId)),
       signature
     ])
+  }
+
+  const saveUploadedSignedFile = (file: UploadedSignedFile) => {
+    setUploadedSignedFiles((current) => {
+      current
+        .filter((item) => item.docId === file.docId && item.personId === file.personId)
+        .forEach((item) => URL.revokeObjectURL(item.url))
+
+      return [
+        ...current.filter((item) => !(item.docId === file.docId && item.personId === file.personId)),
+        file
+      ]
+    })
+  }
+
+  const createAdminDocument = (doc: DocumentItem) => {
+    setManagedDocuments((current) => [...current, doc])
+    setSelectedDocId(doc.id)
+    setExpandedDocId(doc.id)
+  }
+
+  const updateAdminDocument = (doc: DocumentItem) => {
+    setManagedDocuments((current) => current.map((item) => item.id === doc.id ? doc : item))
+    setSelectedDocId(doc.id)
+    setExpandedDocId(doc.id)
   }
 
   const totals = useMemo(() => {
@@ -402,11 +503,14 @@ export default function Dashboard({ user, setUser }: any) {
                     docs={visibleDocuments}
                     selectedDoc={selectedDocument}
                     personId={personId}
+                    currentPerson={currentPerson}
                     watermark={watermark}
                     signaturePlacement={signaturePlacement}
                     signature={sessionSignatures.find((signature) => signature.docId === selectedDocument?.id && signature.personId === personId)}
+                    uploadedFile={uploadedSignedFiles.find((file) => file.docId === selectedDocument?.id && file.personId === personId)}
                     onSelectDoc={setSelectedDocId}
                     onDirectSignoff={saveDirectSignature}
+                    onUploadSignedFile={saveUploadedSignedFile}
                   />
                 ) : (
                   <DocumentCards docs={visibleDocuments.slice(0, 4)} role={role} personId={personId} />
@@ -455,13 +559,20 @@ export default function Dashboard({ user, setUser }: any) {
               <AdminPanel
                 adminView={adminView}
                 setAdminView={setAdminView}
-                isSuperAdmin={role === 'SUPER_ADMIN'}
+                isSuperAdmin={isSuperAdmin}
+                adminEntity={adminEntity}
                 watermark={watermark}
                 onWatermarkChange={saveWatermark}
                 signaturePlacement={signaturePlacement}
                 onSignaturePlacementChange={saveSignaturePlacement}
                 people={managedPeople}
                 onPeopleChange={setManagedPeople}
+                docs={visibleDocuments}
+                nextDocumentId={nextDocumentId}
+                onDocumentCreate={createAdminDocument}
+                onDocumentUpdate={updateAdminDocument}
+                picEmails={picEmails}
+                onPicEmailsChange={setPicEmails}
               />
             )}
           </div>
@@ -524,20 +635,26 @@ function UserDocumentWorkspace({
   docs,
   selectedDoc,
   personId,
+  currentPerson,
   watermark,
   signaturePlacement,
   signature,
+  uploadedFile,
   onSelectDoc,
-  onDirectSignoff
+  onDirectSignoff,
+  onUploadSignedFile
 }: {
   docs: DocumentItem[]
   selectedDoc?: DocumentItem
   personId: number
+  currentPerson?: Person
   watermark: WatermarkSettings
   signaturePlacement: SignaturePlacementOption
   signature?: SignatureRecord
+  uploadedFile?: UploadedSignedFile
   onSelectDoc: (docId: number) => void
   onDirectSignoff: (signature: SignatureRecord) => void
+  onUploadSignedFile: (file: UploadedSignedFile) => void
 }) {
   const [isProtected, setIsProtected] = useState(false)
   const [signoffDocId, setSignoffDocId] = useState<number | null>(null)
@@ -616,8 +733,8 @@ function UserDocumentWorkspace({
       </div>
 
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+          <div className="min-w-0">
             <h4 className="font-bold text-slate-900">{selectedDoc.name}</h4>
             <p className="text-sm text-slate-600">Choose manual download-upload or sign off directly from this preview.</p>
           </div>
@@ -625,18 +742,26 @@ function UserDocumentWorkspace({
             doc={selectedDoc}
             role="USER"
             personId={personId}
+            signature={signature}
+            uploadedFile={uploadedFile}
+            watermark={watermark}
+            signaturePlacement={signaturePlacement}
+            onUploadSignedFile={(file) => onUploadSignedFile(file)}
             onStartDirectSignoff={() => setSignoffDocId(selectedDoc.id)}
           />
         </div>
         {signoffDocId === selectedDoc.id && (
           <SignatureSignoffModal
             doc={selectedDoc}
+            signer={currentPerson}
             onCancel={() => setSignoffDocId(null)}
-            onConfirm={(signatureDataUrl, signerName) => {
+            onConfirm={(signatureDataUrl, noKtp) => {
               onDirectSignoff({
                 docId: selectedDoc.id,
                 personId,
-                signerName,
+                signerName: currentPerson?.name || 'Signed User',
+                signerNrp: currentPerson?.nrp || '-',
+                noKtp,
                 signatureDataUrl
               })
               setSignoffDocId(null)
@@ -655,7 +780,9 @@ function UserDocumentWorkspace({
           <DocumentPreview
             doc={selectedDoc}
             watermark={watermark}
+            showWatermark
             signature={signature}
+            uploadedFile={uploadedFile}
             signaturePlacement={signaturePlacement}
           />
         </div>
@@ -667,19 +794,50 @@ function UserDocumentWorkspace({
 function DocumentPreview({
   doc,
   watermark,
+  showWatermark = false,
   signature,
+  uploadedFile,
   signaturePlacement
 }: {
   doc: DocumentItem
   watermark: WatermarkSettings
+  showWatermark?: boolean
   signature?: SignatureRecord
+  uploadedFile?: UploadedSignedFile
   signaturePlacement: SignaturePlacementOption
 }) {
-  const previewText = doc.previewText || [
-    doc.name,
-    'Preview text is not available for this demo document.',
-    'The original document can still be downloaded from the action button.'
-  ]
+  const previewText = getDocumentPreviewLines(doc, signature)
+
+  if (uploadedFile) {
+    return (
+      <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 protected-preview">
+        <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-semibold text-slate-900">Signed PDF Preview</p>
+            <p className="text-sm text-slate-600 break-all">{uploadedFile.fileName}</p>
+          </div>
+          <a
+            href={uploadedFile.url}
+            download={uploadedFile.fileName}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition text-center"
+          >
+            Download This PDF
+          </a>
+        </div>
+        <object
+          data={uploadedFile.url}
+          type="application/pdf"
+          className="h-[720px] w-full rounded-lg border border-slate-200 bg-white"
+        >
+          <iframe
+            src={uploadedFile.url}
+            title={uploadedFile.fileName}
+            className="h-[720px] w-full rounded-lg border border-slate-200 bg-white"
+          />
+        </object>
+      </div>
+    )
+  }
 
   const watermarkPositions = [
     { top: '9%', left: '6%' },
@@ -700,45 +858,69 @@ function DocumentPreview({
       onCut={(event) => event.preventDefault()}
       onDragStart={(event) => event.preventDefault()}
     >
-      <div className="relative mx-auto bg-white shadow-sm border border-slate-200 min-h-[720px] max-w-3xl p-10 text-slate-900">
+      <div className="relative mx-auto min-h-[720px] max-w-3xl border border-slate-200 bg-white p-10 text-slate-900 shadow-sm">
         <div
           className="absolute inset-0 pointer-events-none select-none overflow-hidden"
           aria-hidden="true"
         >
-          <div className="relative h-full w-full">
-            {watermarkPositions.map((position, item) => (
-              <div
-                key={item}
-                className="absolute font-bold text-slate-500 uppercase text-center whitespace-nowrap"
-                style={{
-                  opacity: Math.min(watermark.opacity, 11) / 100,
-                  fontSize: Math.min(watermark.size, 25),
-                  transform: 'rotate(-32deg)',
-                  width: 360,
-                  ...position
-                }}
-              >
-                {watermark.text}
-              </div>
-            ))}
-          </div>
+          {showWatermark && (
+            <div className="relative h-full w-full">
+              {watermarkPositions.map((position, item) => (
+                <div
+                  key={item}
+                  className="absolute w-[360px] whitespace-nowrap text-center font-bold uppercase text-slate-500"
+                  style={{
+                    opacity: Math.min(watermark.opacity, 11) / 100,
+                    fontSize: Math.min(watermark.size, 25),
+                    transform: 'rotate(-32deg)',
+                    ...position
+                  }}
+                >
+                  {watermark.text}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="relative space-y-4 leading-7">
           {previewText.map((line, index) => (
             index === 0 ? (
-              <h2 key={line} className="text-center text-xl font-bold tracking-wide mb-8">{line}</h2>
-            ) : line.includes('____') ? (
-              <SignaturePlacement key={`${line}-${index}`} signature={signature} placement={signaturePlacement} />
+              <h2 key={`${line}-${index}`} className="mb-8 text-center text-xl font-bold tracking-wide">{line}</h2>
+            ) : line.startsWith('Tanda tangan elektronik:') ? (
+              <div key={`${line}-${index}`} className="pt-2">
+                <SignaturePlacement signature={signature} placement={signaturePlacement} />
+              </div>
+            ) : isIdentityLine(line) ? (
+              <IdentityLine key={`${line}-${index}`} line={line} signature={signature} />
             ) : (
-              <p key={`${line}-${index}`}>
-                {line}
-              </p>
+              <p key={`${line}-${index}`}>{line}</p>
             )
           ))}
         </div>
       </div>
     </div>
+  )
+}
+
+function isIdentityLine(line: string) {
+  return ['Nama:', 'No. KTP:', 'NRP:'].includes(line)
+}
+
+function IdentityLine({ line, signature }: { line: string; signature?: SignatureRecord }) {
+  const value = line === 'Nama:'
+    ? signature?.signerName
+    : line === 'No. KTP:'
+      ? signature?.noKtp
+      : signature?.signerNrp
+
+  return (
+    <p className="grid grid-cols-[92px_1fr] gap-3">
+      <span>{line}</span>
+      <span className="border-b border-slate-300 min-h-[28px] font-semibold">
+        {value || ''}
+      </span>
+    </p>
   )
 }
 
@@ -797,7 +979,7 @@ function DocumentsTable({
                     <div className="w-28 bg-slate-200 rounded-full h-2">
                       <div
                         className="bg-green-500 h-2 rounded-full"
-                        style={{ width: `${Math.round((doc.signedIds.length / doc.assigneeIds.length) * 100)}%` }}
+                        style={{ width: `${getApprovalRate(doc)}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-600 mt-1">{doc.signedIds.length}/{doc.assigneeIds.length} signed</p>
@@ -881,7 +1063,9 @@ function DocumentSignoffDetail({ doc, people }: { doc: DocumentItem; people: Per
   const assignees = doc.assigneeIds
     .map((id) => people.find((person) => person.id === id))
     .filter(Boolean) as Person[]
-  const pendingCount = doc.assigneeIds.length - doc.signedIds.length
+  const totalCount = doc.assigneeIds.length
+  const signedCount = doc.signedIds.length
+  const pendingCount = totalCount - signedCount
 
   return (
     <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-4">
@@ -889,52 +1073,85 @@ function DocumentSignoffDetail({ doc, people }: { doc: DocumentItem; people: Per
         <div>
           <h4 className="font-bold text-slate-900">Signoff Detail</h4>
           <p className="text-sm text-slate-600">
-            {doc.signedIds.length} signed, {doc.downloadedIds.length} downloaded, {pendingCount} pending approval.
+            {signedCount} signed, {doc.downloadedIds.length} downloaded, {pendingCount} pending approval.
           </p>
         </div>
         <span className="text-sm font-semibold text-blue-700">PIC Owner: {doc.picName}</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {assignees.map((person) => {
-          const signed = doc.signedIds.includes(person.id)
-          const downloaded = doc.downloadedIds.includes(person.id)
+      <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-4 items-start">
+        <DocumentProgressPie signed={signedCount} total={totalCount} />
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full min-w-[520px]">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Nama / Email</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Status Sekarang</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {assignees.map((person) => {
+                const signed = doc.signedIds.includes(person.id)
+                const downloaded = doc.downloadedIds.includes(person.id)
+                const status = signed ? 'Signed' : downloaded ? 'Downloaded' : 'Pending'
 
-          return (
-            <div key={person.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{person.name}</p>
-                  <p className="text-xs text-slate-500">{person.email}</p>
-                  <p className="text-xs text-slate-500">{person.department}</p>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  signed ? 'bg-green-100 text-green-800' : downloaded ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                }`}>
-                  {signed ? 'Signed' : downloaded ? 'Downloaded' : 'Pending'}
-                </span>
-              </div>
-            </div>
-          )
-        })}
+                return (
+                  <tr key={person.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm">
+                      <p className="font-semibold text-slate-900">{person.name}</p>
+                      <p className="text-xs text-slate-500">{person.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${signoffStatusClass(status)}`}>
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {!assignees.length && <p className="p-4 text-sm text-slate-500">No signoff users assigned.</p>}
+        </div>
       </div>
+    </div>
+  )
+}
+
+function DocumentProgressPie({ signed, total }: { signed: number; total: number }) {
+  const rate = total ? Math.round((signed / total) * 100) : 0
+  const signedDegrees = total ? (signed / total) * 360 : 0
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 text-center">
+      <div
+        className="mx-auto flex h-28 w-28 items-center justify-center rounded-full"
+        style={{ background: `conic-gradient(#2563eb 0deg ${signedDegrees}deg, #e2e8f0 ${signedDegrees}deg 360deg)` }}
+      >
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white">
+          <span className="text-xl font-bold text-slate-900">{rate}%</span>
+        </div>
+      </div>
+      <p className="mt-3 text-sm font-semibold text-slate-900">{signed}/{total} signed</p>
+      <p className="text-xs text-slate-500">{Math.max(total - signed, 0)} remaining</p>
     </div>
   )
 }
 
 function SignatureSignoffModal({
   doc,
+  signer,
   onCancel,
   onConfirm
 }: {
   doc: DocumentItem
+  signer?: Person
   onCancel: () => void
-  onConfirm: (signatureDataUrl: string, signerName: string) => void
+  onConfirm: (signatureDataUrl: string, noKtp: string) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const isDrawingRef = useRef(false)
   const lastPointRef = useRef<{ x: number; y: number } | null>(null)
-  const [signerName, setSignerName] = useState('')
-  const [note, setNote] = useState('')
+  const [noKtp, setNoKtp] = useState('')
   const [accepted, setAccepted] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
 
@@ -1016,8 +1233,8 @@ function SignatureSignoffModal({
 
   const submitSignature = () => {
     const canvas = canvasRef.current
-    if (!canvas || !signerName.trim() || !accepted || !hasSignature) return
-    onConfirm(canvas.toDataURL('image/png'), signerName.trim())
+    if (!canvas || !noKtp.trim() || !accepted || !hasSignature) return
+    onConfirm(canvas.toDataURL('image/png'), noKtp.trim())
   }
 
   return (
@@ -1054,19 +1271,24 @@ function SignatureSignoffModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              value={signerName}
-              onChange={(event) => setSignerName(event.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 bg-white"
-              placeholder="Signer name"
-            />
-            <input
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 bg-white"
-              placeholder="Position or approval note"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-500">Nama</p>
+              <p className="font-semibold text-slate-900">{signer?.name || 'Signed User'}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-500">NRP</p>
+              <p className="font-semibold text-slate-900">{signer?.nrp || '-'}</p>
+            </div>
+            <label className="text-sm font-semibold text-slate-700">
+              No. KTP
+              <input
+                value={noKtp}
+                onChange={(event) => setNoKtp(event.target.value)}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 bg-white font-normal"
+                placeholder="Masukkan No. KTP"
+              />
+            </label>
           </div>
 
           <div className="rounded-lg border border-slate-300 bg-white p-3">
@@ -1108,7 +1330,7 @@ function SignatureSignoffModal({
             </button>
             <button
               onClick={submitSignature}
-              disabled={!signerName.trim() || !accepted || !hasSignature}
+              disabled={!noKtp.trim() || !accepted || !hasSignature}
               className="bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
             >
               Submit Signature
@@ -1124,48 +1346,106 @@ function DocumentActions({
   doc,
   role,
   personId,
+  signature,
+  uploadedFile,
+  watermark = defaultWatermark,
+  signaturePlacement = defaultSignaturePlacement,
   compact = false,
   onPreview,
+  onUploadSignedFile,
   onStartDirectSignoff
 }: {
   doc: DocumentItem
   role: Role
   personId: number
+  signature?: SignatureRecord
+  uploadedFile?: UploadedSignedFile
+  watermark?: WatermarkSettings
+  signaturePlacement?: SignaturePlacementOption
   compact?: boolean
   onPreview?: () => void
+  onUploadSignedFile?: (file: UploadedSignedFile) => void
   onStartDirectSignoff?: () => void
 }) {
   if (role === 'USER') {
     const downloaded = doc.downloadedIds.includes(personId)
     const signed = doc.signedIds.includes(personId)
+    const generatedPdfUrl = createPreviewPdfUrl(doc, signature, undefined, signaturePlacement)
+    const downloadPdfUrl = uploadedFile?.url || doc.downloadUrl || generatedPdfUrl
+    const downloadName = uploadedFile?.fileName || doc.fileName || `${doc.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}.pdf`
 
-    if (signed) return <span className="text-sm font-semibold text-green-700">Signed Off</span>
+    const handleUploadSignedPdf = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file || !onUploadSignedFile) return
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        event.target.value = ''
+        return
+      }
+
+      onUploadSignedFile({
+        docId: doc.id,
+        personId,
+        fileName: file.name,
+        url: URL.createObjectURL(file)
+      })
+      event.target.value = ''
+    }
+
+    if (signed && uploadedFile) {
+      return (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end">
+          <span className="text-sm font-semibold text-green-700 sm:whitespace-nowrap">Signed PDF Uploaded</span>
+          <a
+            href={uploadedFile.url}
+            download={uploadedFile.fileName}
+            className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg transition text-center sm:whitespace-nowrap"
+          >
+            Download Signed PDF
+          </a>
+        </div>
+      )
+    }
+
+    if (signed) {
+      return (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end">
+          <span className="text-sm font-semibold text-green-700 sm:whitespace-nowrap">Signed Off</span>
+          <a
+            href={downloadPdfUrl}
+            download={downloadName}
+            className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg transition text-center sm:whitespace-nowrap"
+          >
+            Download Preview PDF
+          </a>
+        </div>
+      )
+    }
 
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-nowrap sm:items-center sm:justify-end">
         {onPreview && (
           <button
             onClick={onPreview}
-            className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg transition"
+            className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg transition text-center sm:whitespace-nowrap"
           >
             Preview
           </button>
         )}
         <a
-          href={doc.downloadUrl || '/documents/Draft_Pakta_Integritas.pdf'}
-          download={`${doc.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}.pdf`}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition"
+          href={downloadPdfUrl}
+          download={downloadName}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition text-center sm:whitespace-nowrap"
         >
           {downloaded ? 'Download Again' : 'Download PDF'}
         </a>
-        <label className="bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition cursor-pointer">
+        <label className="bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition cursor-pointer text-center sm:whitespace-nowrap">
           Upload Signed PDF
-          <input type="file" accept="application/pdf,.pdf" className="hidden" />
+          <input type="file" accept="application/pdf,.pdf" onChange={handleUploadSignedPdf} className="hidden" />
         </label>
         {onStartDirectSignoff && (
           <button
             onClick={onStartDirectSignoff}
-            className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition"
+            className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition text-center sm:whitespace-nowrap"
           >
             Signoff Directly
           </button>
@@ -1176,10 +1456,311 @@ function DocumentActions({
 
   return (
     <div className={compact ? 'text-sm text-slate-700' : 'text-right'}>
-      <p className="font-semibold text-slate-900">{doc.signedIds.length}/{doc.assigneeIds.length} signed</p>
+      <p className="font-semibold text-slate-900">
+        {doc.assigneeIds.length ? `${doc.signedIds.length}/${doc.assigneeIds.length} signed` : 'Unassigned'}
+      </p>
       <p className="text-xs text-slate-500">Deadline {formatDate(doc.deadline)}</p>
     </div>
   )
+}
+
+function createPreviewPdfUrl(
+  doc: DocumentItem,
+  signature?: SignatureRecord,
+  watermark?: WatermarkSettings,
+  signaturePlacement: SignaturePlacementOption = defaultSignaturePlacement
+) {
+  if (typeof window === 'undefined') return doc.downloadUrl || '/documents/Draft_Pakta_Integritas.pdf'
+
+  const lines = getDocumentPdfLines(doc, signature)
+  const { stream, boldUsed } = buildPdfContentStream(lines, watermark, signaturePlacement)
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R${boldUsed ? ' /F2 6 0 R' : ''} >> >> >>`,
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    ...(boldUsed ? ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'] : [])
+  ]
+
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  })
+
+  const xrefOffset = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+  })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+
+  return `data:application/pdf;base64,${window.btoa(pdf)}`
+}
+
+function getDocumentPreviewLines(doc: DocumentItem, signature?: SignatureRecord) {
+  return (doc.previewText || [
+    doc.name,
+    'Preview text is not available for this demo document.'
+  ]).map((line) => {
+    if (line === 'Nama:' || line === 'No. KTP:' || line === 'NRP:') return line
+    if (line === 'Jabatan:') return 'Jabatan:'
+    if (line.includes('____') && signature) return `Tanda tangan elektronik: ${signature.signerName}`
+    return line
+  })
+}
+
+function getDocumentPdfLines(doc: DocumentItem, signature?: SignatureRecord) {
+  return (doc.previewText || [
+    doc.name,
+    'Preview text is not available for this demo document.'
+  ]).map((line) => {
+    if (line === 'Nama:') return `Nama: ${signature?.signerName || ''}`
+    if (line === 'No. KTP:') return `No. KTP: ${signature?.noKtp || ''}`
+    if (line === 'NRP:') return `NRP: ${signature?.signerNrp || ''}`
+    if (line === 'Jabatan:') return 'Jabatan:'
+    if (line.includes('____')) return signature ? `Tanda tangan elektronik: ${signature.signerName}` : 'SIGNATURE_LINE'
+    return line
+  })
+}
+
+type PdfLineKind = 'title' | 'identity' | 'signature' | 'electronic-signature' | 'paragraph'
+
+type PdfLine = {
+  kind: PdfLineKind
+  label?: string
+  value?: string
+  text?: string
+}
+
+function buildPdfContentStream(
+  lines: string[],
+  watermark?: WatermarkSettings,
+  signaturePlacement: SignaturePlacementOption = defaultSignaturePlacement
+) {
+  const instructions: string[] = []
+  const watermarkText = sanitizePdfText(watermark?.text?.toUpperCase() || '')
+
+  if (watermark && watermarkText) {
+    const watermarkOpacity = Math.max(0.05, Math.min(watermark.opacity / 100, 0.18))
+    const watermarkSize = Math.max(18, Math.min(watermark.size, 30))
+    const watermarkPositions = [
+      [84, 640],
+      [356, 645],
+      [168, 430],
+      [422, 434],
+      [96, 230],
+      [360, 238],
+      [190, 88],
+      [454, 94]
+    ]
+
+    watermarkPositions.forEach(([x, y]) => {
+      instructions.push(
+        'q',
+        `${watermarkOpacity.toFixed(2)} g`,
+        'BT',
+        `/F2 ${watermarkSize} Tf`,
+        `0.848 -0.53 0.53 0.848 ${x} ${y} Tm`,
+        `${escapePdfText(watermarkText)} Tj`,
+        'ET',
+        'Q'
+      )
+    })
+  }
+
+  const pdfLines = normalizePdfLines(lines)
+  let cursorY = 724
+  let boldUsed = watermarkText.length > 0
+
+  pdfLines.forEach((line) => {
+    if (cursorY < 56) return
+
+    if (line.kind === 'title') {
+      boldUsed = true
+      cursorY = drawPdfText(instructions, line.text || '', {
+        x: 72,
+        y: cursorY,
+        maxChars: 48,
+        font: '/F2',
+        fontSize: 14,
+        leading: 17,
+        align: 'center'
+      }) - 24
+      return
+    }
+
+    if (line.kind === 'identity') {
+      drawPdfText(instructions, line.label || '', {
+        x: 72,
+        y: cursorY,
+        maxChars: 14,
+        font: '/F1',
+        fontSize: 10,
+        leading: 12
+      })
+      if (line.value) {
+        drawPdfText(instructions, line.value, {
+          x: 142,
+          y: cursorY,
+          maxChars: 84,
+          font: '/F1',
+          fontSize: 10,
+          leading: 12
+        })
+      }
+      instructions.push(
+        '0.65 G',
+        '0.45 w',
+        `142 ${(cursorY - 4).toFixed(2)} m`,
+        `540 ${(cursorY - 4).toFixed(2)} l`,
+        'S',
+        '0 G'
+      )
+      cursorY -= 22
+      return
+    }
+
+    if (line.kind === 'signature') {
+      const lineWidth = 176
+      const x = getSignatureLineX(signaturePlacement, lineWidth)
+      const y = Math.max(cursorY - 28, 62)
+      instructions.push(
+        '0 G',
+        '0.8 w',
+        `${x.toFixed(2)} ${y.toFixed(2)} m`,
+        `${(x + lineWidth).toFixed(2)} ${y.toFixed(2)} l`,
+        'S'
+      )
+      cursorY = y - 22
+      return
+    }
+
+    if (line.kind === 'electronic-signature') {
+      boldUsed = true
+      cursorY = drawPdfText(instructions, line.text || '', {
+        x: getSignatureLineX(signaturePlacement, 176),
+        y: cursorY - 18,
+        maxChars: 38,
+        font: '/F2',
+        fontSize: 9.5,
+        leading: 11,
+        align: signaturePlacement
+      }) - 12
+      return
+    }
+
+    cursorY = drawPdfText(instructions, line.text || '', {
+      x: 72,
+      y: cursorY,
+      maxChars: 110,
+      font: '/F1',
+      fontSize: 8.3,
+      leading: 10.6
+    }) - 8
+  })
+
+  return {
+    stream: instructions.join('\n'),
+    boldUsed
+  }
+}
+
+function normalizePdfLines(lines: string[]): PdfLine[] {
+  return lines.map((line, index) => {
+    if (index === 0) return { kind: 'title', text: line }
+    if (line.startsWith('Nama:')) return splitIdentityPdfLine('Nama:', line)
+    if (line.startsWith('No. KTP:')) return splitIdentityPdfLine('No. KTP:', line)
+    if (line.startsWith('NRP:')) return splitIdentityPdfLine('NRP:', line)
+    if (line.startsWith('Jabatan:')) return splitIdentityPdfLine('Jabatan:', line)
+    if (line === 'SIGNATURE_LINE') return { kind: 'signature' }
+    if (line.startsWith('Tanda tangan elektronik:')) return { kind: 'electronic-signature', text: line }
+    return { kind: 'paragraph', text: line }
+  })
+}
+
+function splitIdentityPdfLine(label: string, line: string): PdfLine {
+  return {
+    kind: 'identity',
+    label,
+    value: line.slice(label.length).trim()
+  }
+}
+
+function drawPdfText(
+  instructions: string[],
+  text: string,
+  options: {
+    x: number
+    y: number
+    maxChars: number
+    font: '/F1' | '/F2'
+    fontSize: number
+    leading: number
+    align?: 'left' | 'center' | 'right'
+  }
+) {
+  let cursorY = options.y
+  const segments = wrapPdfLine(text, options.maxChars)
+
+  segments.forEach((segment) => {
+    if (cursorY < 56) return
+    const safeSegment = sanitizePdfText(segment)
+    const estimatedWidth = safeSegment.length * (options.fontSize * 0.52)
+    const x = options.align === 'center'
+      ? Math.max(72, (612 - estimatedWidth) / 2)
+      : options.align === 'right'
+        ? Math.max(72, options.x + 176 - estimatedWidth)
+        : options.x
+
+    instructions.push(
+      'BT',
+      `${options.font} ${options.fontSize} Tf`,
+      `${x.toFixed(2)} ${cursorY.toFixed(2)} Td`,
+      `${escapePdfText(safeSegment)} Tj`,
+      'ET'
+    )
+    cursorY -= options.leading
+  })
+
+  return cursorY
+}
+
+function getSignatureLineX(placement: SignaturePlacementOption, lineWidth: number) {
+  if (placement === 'left') return 72
+  if (placement === 'right') return 612 - 72 - lineWidth
+  return (612 - lineWidth) / 2
+}
+
+function wrapPdfLine(line: string, maxLength: number) {
+  const words = line.split(' ')
+  const wrapped: string[] = []
+  let current = ''
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word
+    if (next.length > maxLength) {
+      if (current) wrapped.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  })
+
+  if (current) wrapped.push(current)
+  return wrapped.length ? wrapped : ['']
+}
+
+function escapePdfText(value: string) {
+  const ascii = sanitizePdfText(value)
+  return `(${ascii.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')})`
+}
+
+function sanitizePdfText(value: string) {
+  return value.replace(/[^\x20-\x7E]/g, ' ')
 }
 
 function TeamPanel({ isAdmin, people, picUsers }: { isAdmin: boolean; people: Person[]; picUsers: PicUser[] }) {
@@ -1218,22 +1799,36 @@ function AdminPanel({
   adminView,
   setAdminView,
   isSuperAdmin,
+  adminEntity,
   watermark,
   onWatermarkChange,
   signaturePlacement,
   onSignaturePlacementChange,
   people,
-  onPeopleChange
+  onPeopleChange,
+  docs,
+  nextDocumentId,
+  onDocumentCreate,
+  onDocumentUpdate,
+  picEmails,
+  onPicEmailsChange
 }: {
   adminView: AdminView
   setAdminView: (view: AdminView) => void
   isSuperAdmin: boolean
+  adminEntity: string
   watermark: WatermarkSettings
   onWatermarkChange: (settings: WatermarkSettings) => void
   signaturePlacement: SignaturePlacementOption
   onSignaturePlacementChange: (placement: SignaturePlacementOption) => void
   people: Person[]
   onPeopleChange: (people: Person[]) => void
+  docs: DocumentItem[]
+  nextDocumentId: number
+  onDocumentCreate: (doc: DocumentItem) => void
+  onDocumentUpdate: (doc: DocumentItem) => void
+  picEmails: PicEmailMap
+  onPicEmailsChange: (emails: PicEmailMap) => void
 }) {
   const actions: { id: AdminView; label: string; description: string }[] = [
     { id: 'upload', label: 'Upload New Document', description: 'Prepare a new PDF package for distribution.' },
@@ -1272,7 +1867,19 @@ function AdminPanel({
           </button>
         ))}
       </div>
-      <AdminDetail view={adminView} people={people} onPeopleChange={onPeopleChange} />
+      <AdminDetail
+        view={adminView}
+        people={people}
+        onPeopleChange={onPeopleChange}
+        docs={docs}
+        nextDocumentId={nextDocumentId}
+        onDocumentCreate={onDocumentCreate}
+        onDocumentUpdate={onDocumentUpdate}
+        isSuperAdmin={isSuperAdmin}
+        adminEntity={adminEntity}
+        picEmails={picEmails}
+        onPicEmailsChange={onPicEmailsChange}
+      />
     </div>
   )
 }
@@ -1354,25 +1961,484 @@ function WatermarkSettingsPanel({
 function AdminDetail({
   view,
   people,
-  onPeopleChange
+  onPeopleChange,
+  docs,
+  nextDocumentId,
+  onDocumentCreate,
+  onDocumentUpdate,
+  isSuperAdmin,
+  adminEntity,
+  picEmails,
+  onPicEmailsChange
 }: {
   view: AdminView
   people: Person[]
   onPeopleChange: (people: Person[]) => void
+  docs: DocumentItem[]
+  nextDocumentId: number
+  onDocumentCreate: (doc: DocumentItem) => void
+  onDocumentUpdate: (doc: DocumentItem) => void
+  isSuperAdmin: boolean
+  adminEntity: string
+  picEmails: PicEmailMap
+  onPicEmailsChange: (emails: PicEmailMap) => void
 }) {
+  const scopedUploadPeople = useMemo(() => (
+    people.filter((person) => isSuperAdmin || (person.entity || person.department) === adminEntity)
+  ), [adminEntity, isSuperAdmin, people])
+  const availableUploadPics = useMemo(() => (
+    initialPicUsers.filter((pic) => scopedUploadPeople.some((person) => person.picId === pic.id))
+  ), [scopedUploadPeople])
+  const defaultUploadPicIds = useMemo(() => [] as number[], [])
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    category: 'Policy',
+    deadline: getDefaultDeadline(),
+    selectedPicIds: defaultUploadPicIds,
+    selectedAssigneeIds: [] as number[],
+    fileName: '',
+    fileUrl: '',
+    message: '',
+    error: ''
+  })
+  const buildDistributionForm = (doc?: DocumentItem) => {
+    const allowedPicIds = new Set(availableUploadPics.map((pic) => pic.id))
+    const docPicIds = doc ? (doc.picIds || [doc.picId]) : []
+    const validPicIds = docPicIds.filter((id) => allowedPicIds.has(id))
+    const selectedPicIds = validPicIds.length ? validPicIds : defaultUploadPicIds
+    const allowedPersonIds = new Set(
+      scopedUploadPeople
+        .filter((person) => selectedPicIds.includes(person.picId))
+        .map((person) => person.id)
+    )
+
+    return {
+      docId: doc?.id || 0,
+      selectedPicIds,
+      selectedAssigneeIds: (doc?.assigneeIds || []).filter((id) => allowedPersonIds.has(id)),
+      message: '',
+      error: ''
+    }
+  }
+  const [distributionForm, setDistributionForm] = useState(() => buildDistributionForm(docs[0]))
+
+  useEffect(() => {
+    setUploadForm((current) => {
+      const allowedPicIds = new Set(availableUploadPics.map((pic) => pic.id))
+      const validPicIds = current.selectedPicIds.filter((id) => allowedPicIds.has(id))
+      const selectedPicIds = validPicIds.length ? validPicIds : defaultUploadPicIds
+      const allowedPersonIds = new Set(
+        scopedUploadPeople
+          .filter((person) => selectedPicIds.includes(person.picId))
+          .map((person) => person.id)
+      )
+      const selectedAssigneeIds = current.selectedAssigneeIds.filter((id) => allowedPersonIds.has(id))
+
+      if (
+        sameNumberArray(current.selectedPicIds, selectedPicIds) &&
+        sameNumberArray(current.selectedAssigneeIds, selectedAssigneeIds)
+      ) {
+        return current
+      }
+
+      return { ...current, selectedPicIds, selectedAssigneeIds }
+    })
+  }, [availableUploadPics, defaultUploadPicIds, scopedUploadPeople])
+
+  useEffect(() => {
+    const selectedDoc = docs.find((doc) => doc.id === distributionForm.docId) || docs[0]
+    if (!selectedDoc) return
+
+    setDistributionForm((current) => {
+      if (current.docId !== selectedDoc.id) return buildDistributionForm(selectedDoc)
+
+      const normalized = buildDistributionForm({
+        ...selectedDoc,
+        picIds: current.selectedPicIds,
+        assigneeIds: current.selectedAssigneeIds
+      })
+
+      if (
+        sameNumberArray(current.selectedPicIds, normalized.selectedPicIds) &&
+        sameNumberArray(current.selectedAssigneeIds, normalized.selectedAssigneeIds)
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        selectedPicIds: normalized.selectedPicIds,
+        selectedAssigneeIds: normalized.selectedAssigneeIds
+      }
+    })
+  }, [availableUploadPics, defaultUploadPicIds, distributionForm.docId, docs, scopedUploadPeople])
+
+  const selectedUploadPicIds = uploadForm.selectedPicIds
+  const assignableUploadPeople = scopedUploadPeople.filter((person) => selectedUploadPicIds.includes(person.picId))
+  const selectedAssigneeIds = new Set(uploadForm.selectedAssigneeIds)
+  const assignableDistributionPeople = scopedUploadPeople.filter((person) => distributionForm.selectedPicIds.includes(person.picId))
+  const selectedDistributionAssigneeIds = new Set(distributionForm.selectedAssigneeIds)
+
+  const handleUploadPdf = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadForm((current) => ({ ...current, error: 'File harus berformat PDF.', message: '' }))
+      event.target.value = ''
+      return
+    }
+
+    setUploadForm((current) => {
+      if (current.fileUrl.startsWith('blob:')) URL.revokeObjectURL(current.fileUrl)
+      return {
+        ...current,
+        fileName: file.name,
+        fileUrl: URL.createObjectURL(file),
+        error: '',
+        message: ''
+      }
+    })
+    event.target.value = ''
+  }
+
+  const toggleUploadPic = (picId: number) => {
+    setUploadForm((current) => {
+      const selectedPicIds = current.selectedPicIds.includes(picId)
+        ? current.selectedPicIds.filter((id) => id !== picId)
+        : [...current.selectedPicIds, picId]
+      const allowedPersonIds = new Set(
+        scopedUploadPeople
+          .filter((person) => selectedPicIds.includes(person.picId))
+          .map((person) => person.id)
+      )
+
+      return {
+        ...current,
+        selectedPicIds,
+        selectedAssigneeIds: current.selectedAssigneeIds.filter((id) => allowedPersonIds.has(id)),
+        error: '',
+        message: ''
+      }
+    })
+  }
+
+  const toggleUploadAssignee = (personId: number) => {
+    setUploadForm((current) => ({
+      ...current,
+      selectedAssigneeIds: current.selectedAssigneeIds.includes(personId)
+        ? current.selectedAssigneeIds.filter((id) => id !== personId)
+        : [...current.selectedAssigneeIds, personId],
+      error: '',
+      message: ''
+    }))
+  }
+
+  const selectAllUploadAssignees = () => {
+    setUploadForm((current) => ({
+      ...current,
+      selectedAssigneeIds: assignableUploadPeople.map((person) => person.id),
+      error: '',
+      message: ''
+    }))
+  }
+
+  const clearUploadAssignees = () => {
+    setUploadForm((current) => ({ ...current, selectedAssigneeIds: [], error: '', message: '' }))
+  }
+
+  const saveUploadedDocument = () => {
+    const title = uploadForm.title.trim()
+    const selectedPics = availableUploadPics.filter((pic) => uploadForm.selectedPicIds.includes(pic.id))
+    const assignableIds = new Set(assignableUploadPeople.map((person) => person.id))
+    const selectedAssigneeIds = uploadForm.selectedAssigneeIds.filter((id) => assignableIds.has(id))
+
+    if (!title) {
+      setUploadForm((current) => ({ ...current, error: 'Judul dokumen wajib diisi.', message: '' }))
+      return
+    }
+    if (!uploadForm.fileUrl) {
+      setUploadForm((current) => ({ ...current, error: 'Pilih file PDF terlebih dahulu.', message: '' }))
+      return
+    }
+    const nextDocument: DocumentItem = {
+      id: nextDocumentId,
+      name: title,
+      status: selectedAssigneeIds.length ? 'ACTIVE' : 'PENDING',
+      category: uploadForm.category,
+      deadline: uploadForm.deadline || getDefaultDeadline(),
+      picId: selectedPics[0]?.id || 0,
+      picIds: selectedPics.map((pic) => pic.id),
+      picName: selectedPics.length ? selectedPics.map((pic) => pic.name).join(', ') : 'Unassigned',
+      assigneeIds: selectedAssigneeIds,
+      downloadedIds: [],
+      signedIds: [],
+      downloadUrl: uploadForm.fileUrl,
+      fileName: uploadForm.fileName,
+      ownerEntity: adminEntity,
+      previewText: [
+        title,
+        `File: ${uploadForm.fileName}`,
+        `Category: ${uploadForm.category}`,
+        'Nama:',
+        'No. KTP:',
+        'NRP:',
+        'Jabatan:',
+        '__________________________'
+      ]
+    }
+
+    onDocumentCreate(nextDocument)
+    setUploadForm({
+      title: '',
+      category: 'Policy',
+      deadline: getDefaultDeadline(),
+      selectedPicIds: defaultUploadPicIds,
+      selectedAssigneeIds: [],
+      fileName: '',
+      fileUrl: '',
+      message: selectedAssigneeIds.length
+        ? `${title} berhasil diupload dan dimapping ke ${selectedPics.length} PIC dan ${selectedAssigneeIds.length} user.`
+        : `${title} berhasil diupload sebagai dokumen pending. Assign PIC dan user melalui Create Distribution.`,
+      error: ''
+    })
+  }
+
+  const selectDistributionDocument = (docId: number) => {
+    const doc = docs.find((item) => item.id === docId)
+    setDistributionForm(buildDistributionForm(doc))
+  }
+
+  const toggleDistributionPic = (picId: number) => {
+    setDistributionForm((current) => {
+      const selectedPicIds = current.selectedPicIds.includes(picId)
+        ? current.selectedPicIds.filter((id) => id !== picId)
+        : [...current.selectedPicIds, picId]
+      const allowedPersonIds = new Set(
+        scopedUploadPeople
+          .filter((person) => selectedPicIds.includes(person.picId))
+          .map((person) => person.id)
+      )
+
+      return {
+        ...current,
+        selectedPicIds,
+        selectedAssigneeIds: current.selectedAssigneeIds.filter((id) => allowedPersonIds.has(id)),
+        error: '',
+        message: ''
+      }
+    })
+  }
+
+  const toggleDistributionAssignee = (personId: number) => {
+    setDistributionForm((current) => ({
+      ...current,
+      selectedAssigneeIds: current.selectedAssigneeIds.includes(personId)
+        ? current.selectedAssigneeIds.filter((id) => id !== personId)
+        : [...current.selectedAssigneeIds, personId],
+      error: '',
+      message: ''
+    }))
+  }
+
+  const selectAllDistributionAssignees = () => {
+    setDistributionForm((current) => ({
+      ...current,
+      selectedAssigneeIds: assignableDistributionPeople.map((person) => person.id),
+      error: '',
+      message: ''
+    }))
+  }
+
+  const clearDistributionAssignees = () => {
+    setDistributionForm((current) => ({ ...current, selectedAssigneeIds: [], error: '', message: '' }))
+  }
+
+  const saveDistributionMapping = () => {
+    const doc = docs.find((item) => item.id === distributionForm.docId)
+    const selectedPics = availableUploadPics.filter((pic) => distributionForm.selectedPicIds.includes(pic.id))
+    const assignableIds = new Set(assignableDistributionPeople.map((person) => person.id))
+    const selectedAssigneeIds = distributionForm.selectedAssigneeIds.filter((id) => assignableIds.has(id))
+
+    if (!doc) {
+      setDistributionForm((current) => ({ ...current, error: 'Pilih dokumen terlebih dahulu.', message: '' }))
+      return
+    }
+    if (!selectedPics.length) {
+      setDistributionForm((current) => ({ ...current, error: 'Pilih minimal satu PIC.', message: '' }))
+      return
+    }
+    if (!selectedAssigneeIds.length) {
+      setDistributionForm((current) => ({ ...current, error: 'Pilih minimal satu user untuk signoff.', message: '' }))
+      return
+    }
+
+    onDocumentUpdate({
+      ...doc,
+      status: 'ACTIVE',
+      picId: selectedPics[0].id,
+      picIds: selectedPics.map((pic) => pic.id),
+      picName: selectedPics.map((pic) => pic.name).join(', '),
+      assigneeIds: selectedAssigneeIds,
+      downloadedIds: doc.downloadedIds.filter((id) => selectedAssigneeIds.includes(id)),
+      signedIds: doc.signedIds.filter((id) => selectedAssigneeIds.includes(id))
+    })
+    setDistributionForm((current) => ({
+      ...current,
+      message: `${doc.name} berhasil dimapping ke ${selectedPics.length} PIC dan ${selectedAssigneeIds.length} user.`,
+      error: ''
+    }))
+  }
+
   if (view === 'upload') {
     return (
       <div className="border border-slate-200 rounded-lg p-5 bg-slate-50">
         <h4 className="font-bold text-slate-900 mb-4">Upload New Document</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input className="border border-slate-300 rounded-lg px-3 py-2" placeholder="Document title" />
-          <select className="border border-slate-300 rounded-lg px-3 py-2">
-            <option>Policy</option>
-            <option>Compliance</option>
-            <option>Legal</option>
-            <option>HR</option>
-          </select>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 py-2">Choose PDF</button>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label className="text-sm font-semibold text-slate-700">
+              Document title
+              <input
+                value={uploadForm.title}
+                onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value, error: '', message: '' })}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-normal bg-white"
+                placeholder="Document title"
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Category
+              <select
+                value={uploadForm.category}
+                onChange={(event) => setUploadForm({ ...uploadForm, category: event.target.value, error: '', message: '' })}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-normal bg-white"
+              >
+                <option>Policy</option>
+                <option>Compliance</option>
+                <option>Legal</option>
+                <option>HR</option>
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Deadline
+              <input
+                type="date"
+                value={uploadForm.deadline}
+                onChange={(event) => setUploadForm({ ...uploadForm, deadline: event.target.value, error: '', message: '' })}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-normal bg-white"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 py-2 text-center cursor-pointer">
+              Choose PDF
+              <input type="file" accept="application/pdf,.pdf" onChange={handleUploadPdf} className="hidden" />
+            </label>
+            <span className="text-sm text-slate-600 break-all">
+              {uploadForm.fileName || 'No PDF selected'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-900 mb-1">PIC Tujuan</p>
+              <p className="mb-3 text-xs text-slate-500">Optional saat upload. Bisa diassign setelah dokumen tersimpan.</p>
+              <div className="space-y-2">
+                {availableUploadPics.map((pic) => {
+                  const memberCount = scopedUploadPeople.filter((person) => person.picId === pic.id).length
+
+                  return (
+                    <label key={pic.id} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={uploadForm.selectedPicIds.includes(pic.id)}
+                        onChange={() => toggleUploadPic(pic.id)}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="block font-semibold text-slate-900">{pic.name}</span>
+                        <span className="block text-xs text-slate-500">{memberCount} user</span>
+                      </span>
+                    </label>
+                  )
+                })}
+                {!availableUploadPics.length && <p className="text-sm text-slate-500">No PIC available.</p>}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 min-w-0">
+              <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">User Signoff</p>
+                  <p className="text-xs text-slate-500">Optional saat upload</p>
+                  <p className="text-xs text-slate-500">{uploadForm.selectedAssigneeIds.length}/{assignableUploadPeople.length} selected</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAllUploadAssignees}
+                    className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg"
+                    type="button"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={clearUploadAssignees}
+                    className="border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg"
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                <table className="w-full min-w-[560px]">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">User</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">PIC</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600">Assign</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {assignableUploadPeople.map((person) => {
+                      const pic = initialPicUsers.find((item) => item.id === person.picId)
+
+                      return (
+                        <tr key={person.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 text-sm">
+                            <p className="font-semibold text-slate-900">{person.name}</p>
+                            <p className="text-xs text-slate-500">{person.email}</p>
+                          </td>
+                          <td className="px-3 py-2 text-sm text-slate-600">{pic?.name || '-'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="checkbox"
+                              checked={selectedAssigneeIds.has(person.id)}
+                              onChange={() => toggleUploadAssignee(person.id)}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {!assignableUploadPeople.length && <p className="text-sm text-slate-500 py-3">Select PIC first.</p>}
+              </div>
+            </div>
+          </div>
+
+          {uploadForm.error && <p className="text-sm font-semibold text-red-700">{uploadForm.error}</p>}
+          {uploadForm.message && <p className="text-sm font-semibold text-green-700">{uploadForm.message}</p>}
+
+          <button
+            onClick={saveUploadedDocument}
+            className="bg-slate-900 hover:bg-slate-700 text-white font-semibold rounded-lg px-4 py-2"
+            type="button"
+          >
+            Save Document Mapping
+          </button>
+
+          <UploadedDocumentsPanel docs={docs} people={people} />
         </div>
       </div>
     )
@@ -1382,32 +2448,267 @@ function AdminDetail({
     return (
       <div className="border border-slate-200 rounded-lg p-5 bg-slate-50">
         <h4 className="font-bold text-slate-900 mb-4">Create Distribution</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <select className="border border-slate-300 rounded-lg px-3 py-2">
-            {initialDocuments.map((doc) => <option key={doc.id}>{doc.name}</option>)}
-          </select>
-          <select className="border border-slate-300 rounded-lg px-3 py-2">
-            {entityOptions.map((entity) => <option key={entity}>{entity}</option>)}
-          </select>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 py-2">Assign Distribution</button>
+        <div className="space-y-5">
+          <label className="text-sm font-semibold text-slate-700">
+            Document
+            <select
+              value={distributionForm.docId}
+              onChange={(event) => selectDistributionDocument(Number(event.target.value))}
+              className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-normal bg-white"
+            >
+              {docs.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+            </select>
+          </label>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-900 mb-3">PIC Tujuan</p>
+              <div className="space-y-2">
+                {availableUploadPics.map((pic) => {
+                  const memberCount = scopedUploadPeople.filter((person) => person.picId === pic.id).length
+
+                  return (
+                    <label key={pic.id} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={distributionForm.selectedPicIds.includes(pic.id)}
+                        onChange={() => toggleDistributionPic(pic.id)}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="block font-semibold text-slate-900">{pic.name}</span>
+                        <span className="block text-xs text-slate-500">{memberCount} user</span>
+                      </span>
+                    </label>
+                  )
+                })}
+                {!availableUploadPics.length && <p className="text-sm text-slate-500">No PIC available.</p>}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 min-w-0">
+              <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">User Signoff</p>
+                  <p className="text-xs text-slate-500">{distributionForm.selectedAssigneeIds.length}/{assignableDistributionPeople.length} selected</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAllDistributionAssignees}
+                    className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg"
+                    type="button"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={clearDistributionAssignees}
+                    className="border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg"
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                <table className="w-full min-w-[560px]">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">User</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">PIC</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600">Assign</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {assignableDistributionPeople.map((person) => {
+                      const pic = initialPicUsers.find((item) => item.id === person.picId)
+
+                      return (
+                        <tr key={person.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 text-sm">
+                            <p className="font-semibold text-slate-900">{person.name}</p>
+                            <p className="text-xs text-slate-500">{person.email}</p>
+                          </td>
+                          <td className="px-3 py-2 text-sm text-slate-600">{pic?.name || '-'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="checkbox"
+                              checked={selectedDistributionAssigneeIds.has(person.id)}
+                              onChange={() => toggleDistributionAssignee(person.id)}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {!assignableDistributionPeople.length && <p className="text-sm text-slate-500 py-3">Select PIC first.</p>}
+              </div>
+            </div>
+          </div>
+
+          {distributionForm.error && <p className="text-sm font-semibold text-red-700">{distributionForm.error}</p>}
+          {distributionForm.message && <p className="text-sm font-semibold text-green-700">{distributionForm.message}</p>}
+
+          <button
+            onClick={saveDistributionMapping}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 py-2"
+            type="button"
+          >
+            Assign Distribution
+          </button>
         </div>
       </div>
     )
   }
 
   if (view === 'users') {
-    return <ManageUsersPanel people={people} onPeopleChange={onPeopleChange} />
+    return (
+      <ManageUsersPanel
+        people={people}
+        onPeopleChange={onPeopleChange}
+        isSuperAdmin={isSuperAdmin}
+        adminEntity={adminEntity}
+        picEmails={picEmails}
+        onPicEmailsChange={onPicEmailsChange}
+      />
+    )
   }
 
-  return <DocumentAnalyticsPanel people={people} />
+  return <DocumentAnalyticsPanel docs={docs} people={people} />
 }
 
-function DocumentAnalyticsPanel({ people }: { people: Person[] }) {
+function UploadedDocumentsPanel({ docs, people }: { docs: DocumentItem[]; people: Person[] }) {
+  const uploadedDocs = docs.filter((doc) => doc.fileName || doc.downloadUrl)
+  const [previewDocId, setPreviewDocId] = useState<number | null>(null)
+  const previewDoc = uploadedDocs.find((doc) => doc.id === previewDocId)
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="font-semibold text-slate-900">Uploaded Documents</p>
+          <p className="text-xs text-slate-500">{uploadedDocs.length} PDF document(s) available</p>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[780px]">
+          <thead className="bg-slate-100">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Document</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">PIC</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">User Signoff</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Deadline</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Progress</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Status</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {uploadedDocs.map((doc) => {
+              const total = doc.assigneeIds.length
+              const rate = total ? Math.round((doc.signedIds.length / total) * 100) : 0
+              const assigneeNames = doc.assigneeIds
+                .map((id) => people.find((person) => person.id === id)?.name)
+                .filter(Boolean)
+                .join(', ')
+
+              return (
+                <tr key={doc.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-3 text-sm">
+                    <p className="font-semibold text-slate-900">{doc.name}</p>
+                    <p className="text-xs text-slate-500 break-all">{doc.fileName || doc.downloadUrl || 'PDF source available'}</p>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-slate-600">{doc.picName}</td>
+                  <td className="px-3 py-3 text-sm text-slate-600">
+                    <p>{total} user(s)</p>
+                    <p className="max-w-xs truncate text-xs text-slate-500">{assigneeNames || '-'}</p>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-slate-600">{formatDate(doc.deadline)}</td>
+                  <td className="px-3 py-3 text-sm">
+                    <div className="w-28 bg-slate-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${rate}%` }} />
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">{doc.signedIds.length}/{total} signed</p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statusClass(doc.status)}`}>
+                      {doc.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setPreviewDocId(previewDocId === doc.id ? null : doc.id)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        type="button"
+                      >
+                        View
+                      </button>
+                      {doc.downloadUrl ? (
+                        <a
+                          href={doc.downloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                        >
+                          Open
+                        </a>
+                      ) : (
+                        <span className="px-3 py-2 text-xs text-slate-400">No file</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {!uploadedDocs.length && <p className="py-4 text-sm text-slate-500">No uploaded PDF documents yet.</p>}
+      </div>
+      {previewDoc && (
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-semibold text-slate-900">Preview: {previewDoc.name}</p>
+              <p className="text-xs text-slate-500 break-all">{previewDoc.fileName || previewDoc.downloadUrl}</p>
+            </div>
+            <button
+              onClick={() => setPreviewDocId(null)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              type="button"
+            >
+              Close
+            </button>
+          </div>
+          {previewDoc.downloadUrl ? (
+            <object
+              data={previewDoc.downloadUrl}
+              type="application/pdf"
+              className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
+            >
+              <iframe
+                src={previewDoc.downloadUrl}
+                title={previewDoc.fileName || previewDoc.name}
+                className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
+              />
+            </object>
+          ) : (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+              Preview file is not available.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DocumentAnalyticsPanel({ docs, people }: { docs: DocumentItem[]; people: Person[] }) {
   return (
     <div className="border border-slate-200 rounded-lg p-5 bg-slate-50">
       <h4 className="font-bold text-slate-900 mb-4">Document Approval Progress</h4>
       <div className="space-y-4">
-        {initialDocuments.map((doc) => {
+        {docs.map((doc) => {
           const total = doc.assigneeIds.length
           const rate = total ? Math.round((doc.signedIds.length / total) * 100) : 0
 
@@ -1434,25 +2735,40 @@ function DocumentAnalyticsPanel({ people }: { people: Person[] }) {
 
 function ManageUsersPanel({
   people,
-  onPeopleChange
+  onPeopleChange,
+  isSuperAdmin,
+  adminEntity,
+  picEmails,
+  onPicEmailsChange
 }: {
   people: Person[]
   onPeopleChange: (people: Person[]) => void
+  isSuperAdmin: boolean
+  adminEntity: string
+  picEmails: PicEmailMap
+  onPicEmailsChange: (emails: PicEmailMap) => void
 }) {
+  const availableEntities = isSuperAdmin ? entityOptions : [adminEntity]
   const emptyForm = {
     id: 0,
     nrp: '',
     name: '',
     email: '',
-    department: entityOptions[0],
-    entity: entityOptions[0],
+    department: availableEntities[0],
+    entity: availableEntities[0],
     picId: initialPicUsers[0].id
   }
   const [form, setForm] = useState<Person>(emptyForm)
-  const [selectedEntity, setSelectedEntity] = useState(entityOptions[0])
+  const [selectedEntity, setSelectedEntity] = useState(availableEntities[0])
   const [entitySearch, setEntitySearch] = useState('')
 
-  const filteredEntities = entityOptions.filter((entity) => (
+  useEffect(() => {
+    if (!availableEntities.includes(selectedEntity)) {
+      setSelectedEntity(availableEntities[0])
+    }
+  }, [availableEntities, selectedEntity])
+
+  const filteredEntities = availableEntities.filter((entity) => (
     entity.toLowerCase().includes(entitySearch.toLowerCase())
   ))
   const selectedMembers = people.filter((person) => (person.entity || person.department) === selectedEntity)
@@ -1460,11 +2776,12 @@ function ManageUsersPanel({
   const savePerson = () => {
     if (!form.nrp?.trim() || !form.name.trim() || !form.entity) return
 
+    const allowedEntity = isSuperAdmin ? form.entity : adminEntity
     const nextPerson = {
       ...form,
       email: form.email.trim() || `${form.nrp.trim()}@employee.local`,
-      department: form.entity,
-      entity: form.entity
+      department: allowedEntity,
+      entity: allowedEntity
     }
 
     if (form.id) {
@@ -1494,8 +2811,11 @@ function ManageUsersPanel({
 
       const nextStartId = Math.max(...people.map((person) => person.id), 0) + 1
       const imported = rows.map((row, index) => {
-        const [nrp = '', name = '', entity = entityOptions[0]] = row.split(',').map((cell) => cell.trim())
-        const normalizedEntity = entityOptions.includes(entity) ? entity : entityOptions[0]
+        const separator = row.includes(';') ? ';' : ','
+        const [nrp = '', name = '', entity = entityOptions[0]] = row.split(separator).map((cell) => cell.trim())
+        const normalizedEntity = isSuperAdmin
+          ? (entityOptions.includes(entity) ? entity : entityOptions[0])
+          : adminEntity
 
         return {
           id: nextStartId + index,
@@ -1526,11 +2846,32 @@ function ManageUsersPanel({
   return (
     <div className="border border-slate-200 rounded-lg p-5 bg-slate-50">
       <h4 className="font-bold text-slate-900 mb-4">Manage Users and PIC Ownership</h4>
+      {isSuperAdmin && (
+        <div className="mb-5 rounded-lg border border-green-100 bg-green-50 p-4">
+          <div className="mb-3">
+            <p className="font-semibold text-slate-900">Email PIC Entitas</p>
+            <p className="text-sm text-slate-600">Hanya Super Admin yang dapat mengatur email PIC setiap entitas.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+            {entityOptions.map((entity) => (
+              <label key={entity} className="text-sm font-semibold text-slate-700">
+                <span className="block truncate">{entity}</span>
+                <input
+                  value={picEmails[entity] || ''}
+                  onChange={(event) => onPicEmailsChange({ ...picEmails, [entity]: event.target.value })}
+                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-normal bg-white"
+                  placeholder="email.pic@company.com"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-semibold text-slate-900">Template Upload PIC</p>
-            <p className="text-sm text-slate-600">Format kolom: NRP, Nama, Entitas.</p>
+            <p className="text-sm text-slate-600">Format kolom: NRP; Nama; Entitas. Referensi entitas tersedia di sisi kanan template.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a
@@ -1575,8 +2916,9 @@ function ManageUsersPanel({
                 setForm({ ...form, entity: event.target.value, department: event.target.value })
               }}
               className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              disabled={!isSuperAdmin}
             >
-              {entityOptions.map((entity) => (
+              {availableEntities.map((entity) => (
                 <option key={entity} value={entity}>{entity}</option>
               ))}
             </select>
@@ -1694,6 +3036,19 @@ function statusClass(status: DocumentItem['status']) {
   }
 }
 
+function getApprovalRate(doc: DocumentItem) {
+  return doc.assigneeIds.length ? Math.round((doc.signedIds.length / doc.assigneeIds.length) * 100) : 0
+}
+
+function signoffStatusClass(status: 'Signed' | 'Downloaded' | 'Pending') {
+  switch (status) {
+    case 'Signed': return 'bg-green-100 text-green-800'
+    case 'Downloaded': return 'bg-amber-100 text-amber-800'
+    case 'Pending': return 'bg-slate-100 text-slate-700'
+    default: return 'bg-slate-100 text-slate-700'
+  }
+}
+
 function roleLabel(role: Role) {
   if (role === 'SUPER_ADMIN') return 'Super Admin'
   if (role === 'ADMIN') return 'Admin'
@@ -1714,4 +3069,14 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric'
   })
+}
+
+function getDefaultDeadline() {
+  const date = new Date()
+  date.setDate(date.getDate() + 30)
+  return date.toISOString().slice(0, 10)
+}
+
+function sameNumberArray(left: number[], right: number[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index])
 }
