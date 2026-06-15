@@ -185,58 +185,7 @@ const initialPicUsers: PicUser[] = [
   { id: 6, name: 'PIC HR', email: 'pic.hr@company.com', department: 'Human Resources' }
 ]
 
-const initialDocuments: DocumentItem[] = [
-  {
-    id: 1,
-    name: 'Annual Company Policy 2026',
-    status: 'ACTIVE',
-    category: 'Integrity',
-    deadline: '2026-06-30',
-    picId: 3,
-    picName: 'PIC Finance',
-    assigneeIds: [11, 12, 13],
-    downloadedIds: [11, 12],
-    signedIds: [11],
-    downloadUrl: '/documents/Draft_Pakta_Integritas.pdf',
-    previewText: integrityPreview
-  },
-  {
-    id: 2,
-    name: 'Compliance Requirements',
-    status: 'ACTIVE',
-    category: 'Compliance',
-    deadline: '2026-07-15',
-    picId: 5,
-    picName: 'PIC Legal',
-    assigneeIds: [21, 22],
-    downloadedIds: [21],
-    signedIds: []
-  },
-  {
-    id: 3,
-    name: 'Employee Handbook Update',
-    status: 'COMPLETED',
-    category: 'HR',
-    deadline: '2026-05-20',
-    picId: 6,
-    picName: 'PIC HR',
-    assigneeIds: [31, 32],
-    downloadedIds: [31, 32],
-    signedIds: [31, 32]
-  },
-  {
-    id: 4,
-    name: 'Data Protection Notice',
-    status: 'ACTIVE',
-    category: 'Legal',
-    deadline: '2026-08-01',
-    picId: 3,
-    picName: 'PIC Finance',
-    assigneeIds: [11, 12],
-    downloadedIds: [11],
-    signedIds: []
-  }
-]
+const initialDocuments: DocumentItem[] = []
 
 const currentUserPersonId: Record<string, number> = {
   'user@company.com': 12
@@ -616,6 +565,14 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 function DocumentCards({ docs, role, personId }: { docs: DocumentItem[]; role: Role; personId: number }) {
+  if (!docs.length) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+        Belum ada dokumen. Upload dokumen baru melalui Admin Panel.
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       {docs.map((doc) => (
@@ -944,6 +901,11 @@ function DocumentsTable({
   return (
     <div>
       <SectionHeader title={role === 'USER' ? 'My Assigned Documents' : 'Documents'} />
+      {!docs.length ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+          Belum ada dokumen yang tersedia.
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px]">
           <thead className="bg-slate-100">
@@ -1015,6 +977,7 @@ function DocumentsTable({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
@@ -2707,6 +2670,11 @@ function DocumentAnalyticsPanel({ docs, people }: { docs: DocumentItem[]; people
   return (
     <div className="border border-slate-200 rounded-lg p-5 bg-slate-50">
       <h4 className="font-bold text-slate-900 mb-4">Document Approval Progress</h4>
+      {!docs.length && (
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          Belum ada dokumen upload. Progress approval akan muncul setelah Super Admin mengupload dokumen.
+        </div>
+      )}
       <div className="space-y-4">
         {docs.map((doc) => {
           const total = doc.assigneeIds.length
@@ -2748,7 +2716,9 @@ function ManageUsersPanel({
   picEmails: PicEmailMap
   onPicEmailsChange: (emails: PicEmailMap) => void
 }) {
-  const availableEntities = isSuperAdmin ? entityOptions : [adminEntity]
+  const availableEntities = useMemo(() => (
+    isSuperAdmin ? entityOptions : [adminEntity]
+  ), [adminEntity, isSuperAdmin])
   const emptyForm = {
     id: 0,
     nrp: '',
@@ -2761,6 +2731,7 @@ function ManageUsersPanel({
   const [form, setForm] = useState<Person>(emptyForm)
   const [selectedEntity, setSelectedEntity] = useState(availableEntities[0])
   const [entitySearch, setEntitySearch] = useState('')
+  const [essLookupStatus, setEssLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle')
 
   useEffect(() => {
     if (!availableEntities.includes(selectedEntity)) {
@@ -2772,6 +2743,55 @@ function ManageUsersPanel({
     entity.toLowerCase().includes(entitySearch.toLowerCase())
   ))
   const selectedMembers = people.filter((person) => (person.entity || person.department) === selectedEntity)
+
+  useEffect(() => {
+    const nrp = form.nrp?.trim() || ''
+    if (form.id || nrp.length < 3) {
+      setEssLookupStatus('idle')
+      return
+    }
+
+    let active = true
+    const timer = window.setTimeout(async () => {
+      setEssLookupStatus('loading')
+
+      try {
+        const response = await fetch(`/api/ess/employee?nrp=${encodeURIComponent(nrp)}`)
+        const data = await response.json()
+        if (!active) return
+
+        if (response.ok && data.found && data.employee) {
+          const employee = data.employee
+          const employeeEntity = resolveEssEntity(employee.entity || employee.department, availableEntities, adminEntity, isSuperAdmin)
+          const employeePicId = Number(employee.picId) || inferPicIdForEntity(employeeEntity, people)
+
+          setForm((current) => {
+            if ((current.nrp || '').trim() !== nrp) return current
+
+            return {
+              ...current,
+              name: employee.name || current.name,
+              email: employee.email || current.email,
+              department: employeeEntity,
+              entity: employeeEntity,
+              picId: employeePicId
+            }
+          })
+          setEssLookupStatus('found')
+          return
+        }
+
+        setEssLookupStatus('not_found')
+      } catch {
+        if (active) setEssLookupStatus('error')
+      }
+    }, 600)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [adminEntity, availableEntities, form.id, form.nrp, isSuperAdmin, people])
 
   const savePerson = () => {
     if (!form.nrp?.trim() || !form.name.trim() || !form.entity) return
@@ -2791,7 +2811,12 @@ function ManageUsersPanel({
       onPeopleChange([...people, { ...nextPerson, id: nextId }])
     }
 
+    resetUserForm()
+  }
+
+  const resetUserForm = () => {
     setForm(emptyForm)
+    setEssLookupStatus('idle')
   }
 
   const uploadPeople = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2836,11 +2861,12 @@ function ManageUsersPanel({
 
   const editPerson = (person: Person) => {
     setForm(person)
+    setEssLookupStatus('idle')
   }
 
   const removePerson = (personId: number) => {
     onPeopleChange(people.filter((person) => person.id !== personId))
-    if (form.id === personId) setForm(emptyForm)
+    if (form.id === personId) resetUserForm()
   }
 
   return (
@@ -2898,6 +2924,22 @@ function ManageUsersPanel({
               className="w-full border border-slate-300 rounded-lg px-3 py-2"
               placeholder="NRP"
             />
+            {essLookupStatus !== 'idle' && (
+              <p className={`text-xs font-semibold ${
+                essLookupStatus === 'found'
+                  ? 'text-green-700'
+                  : essLookupStatus === 'not_found'
+                    ? 'text-amber-700'
+                    : essLookupStatus === 'error'
+                      ? 'text-red-700'
+                      : 'text-blue-700'
+              }`}>
+                {essLookupStatus === 'loading' && 'Mencari data ESS...'}
+                {essLookupStatus === 'found' && 'Data ESS ditemukan dan field sudah diisi otomatis.'}
+                {essLookupStatus === 'not_found' && 'Data ESS tidak ditemukan. Nama dan email bisa diisi manual.'}
+                {essLookupStatus === 'error' && 'Lookup ESS gagal. Nama dan email bisa diisi manual.'}
+              </p>
+            )}
             <input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
@@ -2931,7 +2973,7 @@ function ManageUsersPanel({
               </button>
               {form.id !== 0 && (
                 <button
-                  onClick={() => setForm(emptyForm)}
+                  onClick={resetUserForm}
                   className="border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-lg px-4 py-2"
                 >
                   Cancel
@@ -3038,6 +3080,21 @@ function statusClass(status: DocumentItem['status']) {
 
 function getApprovalRate(doc: DocumentItem) {
   return doc.assigneeIds.length ? Math.round((doc.signedIds.length / doc.assigneeIds.length) * 100) : 0
+}
+
+function resolveEssEntity(value: string | undefined, availableEntities: string[], adminEntity: string, isSuperAdmin: boolean) {
+  if (!isSuperAdmin) return adminEntity
+  if (!value) return availableEntities[0] || entityOptions[0]
+
+  const normalizedValue = value.toLowerCase()
+  return availableEntities.find((entity) => entity.toLowerCase() === normalizedValue)
+    || availableEntities.find((entity) => entity.toLowerCase().includes(normalizedValue) || normalizedValue.includes(entity.toLowerCase()))
+    || availableEntities[0]
+    || entityOptions[0]
+}
+
+function inferPicIdForEntity(entity: string, people: Person[]) {
+  return people.find((person) => (person.entity || person.department) === entity)?.picId || initialPicUsers[0].id
 }
 
 function signoffStatusClass(status: 'Signed' | 'Downloaded' | 'Pending') {
