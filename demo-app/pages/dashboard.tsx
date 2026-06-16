@@ -188,7 +188,9 @@ const initialPicUsers: PicUser[] = [
 const initialDocuments: DocumentItem[] = []
 
 const currentUserPersonId: Record<string, number> = {
-  'user@company.com': 12
+  'user@company.com': 12,
+  'maya.finance@company.com': 12,
+  'user.signer@hasnurgroup.com': 12
 }
 
 export default function Dashboard({ user, setUser }: any) {

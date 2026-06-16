@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { GetServerSideProps } from 'next'
+import Image from 'next/image'
 import { useRouter } from 'next/router'
 
 type HomeProps = {
@@ -52,11 +53,17 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f1f2f4] flex items-center justify-center p-4">
-      <div className="w-full max-w-[448px] rounded-[14px] bg-white px-8 py-9 shadow-[0_20px_35px_rgba(15,23,42,0.18)] sm:px-10">
+    <div className="flex min-h-screen items-center justify-center bg-[#f1f2f4] p-4">
+      <div className="w-full max-w-[448px] rounded-[14px] bg-white px-8 py-9 shadow-[0_22px_42px_rgba(15,23,42,0.16)] sm:px-10">
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center">
-            <HasnurLogo />
+            <Image
+              src="/hasnur-logo.png"
+              alt="Hasnur Group"
+              width={74}
+              height={74}
+              className="h-[74px] w-[74px] object-contain"
+            />
           </div>
           <h1 className="text-xl font-bold text-slate-950">Login User</h1>
           <p className="mt-3 text-slate-500">Silakan login untuk melanjutkan</p>
@@ -72,7 +79,7 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
           onClick={() => {
             window.location.href = ssoLoginUrl
           }}
-          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#2f67f2] px-5 py-4 font-bold text-white shadow-[0_12px_22px_rgba(47,103,242,0.32)] transition hover:bg-[#245ce6]"
+          className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-full bg-[#3268ef] px-5 py-4 font-bold text-white shadow-[0_14px_24px_rgba(50,104,239,0.32)] transition hover:bg-[#255ce5] focus:outline-none focus:ring-4 focus:ring-blue-100"
           type="button"
         >
           <ShieldIcon />
@@ -87,7 +94,7 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
 
         <button
           onClick={() => setShowLocalLogin((current) => !current)}
-          className="flex w-full items-center justify-center gap-3 rounded-full border-2 border-slate-200 bg-white px-5 py-4 font-bold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
+          className="flex min-h-[60px] w-full items-center justify-center gap-3 rounded-full border-2 border-slate-200 bg-white px-5 py-4 font-bold text-slate-950 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
           type="button"
         >
           <UserIcon />
@@ -138,20 +145,6 @@ export const getServerSideProps: GetServerSideProps = async () => {
       ssoLoginUrl
     }
   }
-}
-
-function HasnurLogo() {
-  return (
-    <div className="relative flex h-[74px] w-[74px] items-center justify-center rounded-full border-[4px] border-[#22a95a] bg-[#f7dd2a] shadow-sm">
-      <div className="flex h-12 w-8 items-center justify-center gap-[3px]">
-        <span className="h-11 w-[4px] bg-[#143b85]" />
-        <span className="h-12 w-[4px] bg-[#143b85]" />
-        <span className="h-11 w-[4px] bg-[#143b85]" />
-        <span className="h-12 w-[4px] bg-[#143b85]" />
-      </div>
-      <span className="absolute h-[8px] w-[56px] rotate-[-28deg] rounded-full bg-[#ec1c24]" />
-    </div>
-  )
 }
 
 function ShieldIcon() {

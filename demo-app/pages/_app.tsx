@@ -7,7 +7,16 @@ function MyApp({ Component, pageProps }: any) {
   React.useEffect(() => {
     const storedUser = localStorage.getItem('user')
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        if (parsedUser && typeof parsedUser === 'object' && 'email' in parsedUser && 'role' in parsedUser) {
+          setUser(parsedUser)
+        } else {
+          localStorage.removeItem('user')
+        }
+      } catch {
+        localStorage.removeItem('user')
+      }
     }
   }, [])
 
