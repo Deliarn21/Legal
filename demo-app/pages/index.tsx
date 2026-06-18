@@ -2,15 +2,18 @@ import React, { useEffect, useState } from 'react'
 import { GetServerSideProps } from 'next'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
+import { LanguageToggle, useUiLanguage } from '../lib/uiLanguage'
 
 type HomeProps = {
   ssoLoginUrl: string
   user: any
   setUser: (user: any) => void
+  authLoaded?: boolean
 }
 
-export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
+export default function Home({ user, setUser, ssoLoginUrl, authLoaded }: HomeProps) {
   const router = useRouter()
+  const { language, setLanguage } = useUiLanguage()
   const [showLocalLogin, setShowLocalLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,8 +22,8 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
   const ssoError = typeof router.query.error === 'string' ? router.query.error : ''
 
   useEffect(() => {
-    if (user) router.push('/dashboard')
-  }, [router, user])
+    if (authLoaded && user) router.push('/dashboard')
+  }, [authLoaded, router, user])
 
   const handleLocalLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -54,6 +57,9 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f1f2f4] p-4">
+      <div className="fixed right-4 top-4 z-10">
+        <LanguageToggle language={language} onChange={setLanguage} />
+      </div>
       <div className="w-full max-w-[448px] rounded-[14px] bg-white px-8 py-9 shadow-[0_22px_42px_rgba(15,23,42,0.16)] sm:px-10">
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center">
@@ -102,34 +108,39 @@ export default function Home({ user, setUser, ssoLoginUrl }: HomeProps) {
         </button>
 
         {showLocalLogin && (
-          <form onSubmit={handleLocalLogin} className="mt-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-                {error}
-              </div>
-            )}
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              placeholder="NRP / Email"
-              type="text"
-            />
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              placeholder="Password"
-              type="password"
-            />
-            <button
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={loading}
-              type="submit"
-            >
-              {loading ? 'Memproses...' : 'Masuk'}
-            </button>
-          </form>
+          <div className="mt-6 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <form onSubmit={handleLocalLogin} className="space-y-3">
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                  {error}
+                </div>
+              )}
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="NRP / Email"
+                type="text"
+              />
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="Password"
+                type="password"
+              />
+              <button
+                className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loading}
+                type="submit"
+              >
+                {loading ? 'Memproses...' : 'Masuk'}
+              </button>
+            </form>
+            <p className="border-t border-slate-200 pt-4 text-xs text-slate-500">
+              Gunakan credential testing dari catatan terpisah project.
+            </p>
+          </div>
         )}
       </div>
     </div>

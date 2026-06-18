@@ -3,6 +3,7 @@ import '../styles/globals.css'
 
 function MyApp({ Component, pageProps }: any) {
   const [user, setUser] = useState<any>(null)
+  const [authLoaded, setAuthLoaded] = useState(false)
 
   React.useEffect(() => {
     const storedUser = localStorage.getItem('user')
@@ -18,9 +19,10 @@ function MyApp({ Component, pageProps }: any) {
         localStorage.removeItem('user')
       }
     }
+    setAuthLoaded(true)
   }, [])
 
-  return <Component {...pageProps} user={user} setUser={setUser} />
+  return <Component {...pageProps} user={user} setUser={setUser} authLoaded={authLoaded} />
 }
 
 export default MyApp

@@ -4,6 +4,12 @@ type SsoUser = {
   nrp?: string
   name?: string
   email?: string
+  position?: string
+  jabatan?: string
+  noKtp?: string
+  no_ktp?: string
+  ktp?: string
+  nik?: string
 }
 
 type VerifyResponse = {
@@ -118,6 +124,8 @@ function mapSsoUserToDemoUser(ssoUser: SsoUser) {
     email: email || `${ssoUser.nrp || 'sso-user'}@employee.local`,
     name: ssoUser.name || 'SSO User',
     nrp: ssoUser.nrp || '',
+    position: ssoUser.position || ssoUser.jabatan || '',
+    noKtp: ssoUser.noKtp || ssoUser.no_ktp || ssoUser.ktp || ssoUser.nik || '',
     role: 'USER'
   }
 }

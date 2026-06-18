@@ -6,6 +6,8 @@ type EssEmployee = {
   email?: string
   entity?: string
   department?: string
+  position?: string
+  noKtp?: string
   picId?: number
 }
 
@@ -16,6 +18,8 @@ const demoEssEmployees: EssEmployee[] = [
     email: '1250013@hasnurgroup.com',
     entity: 'HASNUR JAYA INTERNATIONAL',
     department: 'HASNUR JAYA INTERNATIONAL',
+    position: 'Staff Finance',
+    noKtp: '3171000000000013',
     picId: 3
   },
   {
@@ -24,6 +28,28 @@ const demoEssEmployees: EssEmployee[] = [
     email: 'ari.finance@company.com',
     entity: 'HASNUR JAYA INTERNATIONAL',
     department: 'Finance',
+    position: 'Finance Officer',
+    noKtp: '123456',
+    picId: 3
+  },
+  {
+    nrp: '100012',
+    name: 'Maya Finance',
+    email: 'maya.finance@company.com',
+    entity: 'HASNUR JAYA INTERNATIONAL',
+    department: 'Finance',
+    position: 'Finance Officer',
+    noKtp: '6125367521673521',
+    picId: 3
+  },
+  {
+    nrp: '100013',
+    name: 'Dimas Finance',
+    email: 'dimas.finance@company.com',
+    entity: 'ENERGI BATUBARA LESTARI',
+    department: 'Finance',
+    position: 'Finance Officer',
+    noKtp: '234567',
     picId: 3
   },
   {
@@ -32,7 +58,39 @@ const demoEssEmployees: EssEmployee[] = [
     email: 'nadia.legal@company.com',
     entity: 'HASNUR GROUP INDONESIA',
     department: 'Legal',
+    position: 'Legal Officer',
+    noKtp: '321456',
     picId: 5
+  },
+  {
+    nrp: '100022',
+    name: 'Bima Legal',
+    email: 'bima.legal@company.com',
+    entity: 'BARITO PUTERA',
+    department: 'Legal',
+    position: 'Legal Officer',
+    noKtp: '654321',
+    picId: 5
+  },
+  {
+    nrp: '100031',
+    name: 'Sari HR',
+    email: 'sari.hr@company.com',
+    entity: 'HASNUR INFORMASI TEKNOLOGI',
+    department: 'Human Resources',
+    position: 'HR Officer',
+    noKtp: '789123',
+    picId: 6
+  },
+  {
+    nrp: '100032',
+    name: 'Reno HR',
+    email: 'reno.hr@company.com',
+    entity: 'PUTERA BARITO BERBAKTI',
+    department: 'Human Resources',
+    position: 'HR Officer',
+    noKtp: '987321',
+    picId: 6
   }
 ]
 
@@ -91,6 +149,8 @@ async function lookupRemoteEssEmployee(nrp: string): Promise<EssEmployee | null>
       email: source.email ? String(source.email) : '',
       entity: source.entity || source.entitas || source.company || source.department || '',
       department: source.department || source.entity || source.entitas || '',
+      position: source.position || source.jabatan || source.job_title || source.title || '',
+      noKtp: source.noKtp || source.no_ktp || source.ktp || source.nik || '',
       picId: Number(source.picId || source.pic_id) || undefined
     }
   } catch {
